@@ -29,7 +29,9 @@ An AI-powered chatbot that helps users find answers to product feature questions
 ### What It Does
 
 Ask Strato is an AI chatbot that provides:
+
 ![alt text](ai-ask-me-images/image-12.png)
+
 - Product feature-related question answering
 - Real-time syncing with Zendesk articles
 - Contextual responses with source references
