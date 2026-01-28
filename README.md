@@ -1,317 +1,419 @@
-# Microsoft SMTP OAuth Configuration Guide
+# Ask Strato AI Chatbot
 
-**Document Version:** 2.0
-**JIRA Reference:** [STOP-2672](https://spinifexit.atlassian.net/browse/STOP-2672) and [STOP-2726](https://spinifexit.atlassian.net/browse/STOP-2726)
+An AI-powered chatbot that helps users find answers to product feature questions using AWS Bedrock and a Zendesk-powered knowledge base.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Initial Setup](#initial-setup)
+  - [AWS Configuration](#aws-configuration)
+  - [Environment Variables](#environment-variables)
+- [Project Structure](#project-structure)
+- [Development Guide](#development-guide)
+  - [Running Locally](#running-locally)
+  - [Testing](#testing)
+  - [Python Dependencies](#python-dependencies)
+- [Architecture](#architecture)
+  - [System Flow](#system-flow)
+  - [Lambda Functions](#lambda-functions)
+  - [Knowledge Base](#knowledge-base)
+- [Feature Details](#feature-details)
+- [Deployment](#deployment)
 
 ---
 
 ## Overview
 
-Microsoft has officially discontinued Basic Authentication for SMTP. To maintain secure email communication, the Strato system now utilizes **OAuth 2.0 (Modern Authentication)** via the **Client Credentials Flow**. This enables server-to-server email transmission (e.g., system notifications) without requiring a user to be logged in.
+### What It Does
 
-### Authentication Flow
+Ask Strato is an AI chatbot that provides:
 
-The integration uses the **OAuth 2.0 Client Credentials Flow**, designed for server-to-server authentication where the application acts on its own behalf rather than on behalf of a specific user. This flow is ideal for automated email sending scenarios.
+- Product feature-related question answering
+- Real-time syncing with Zendesk articles
+- Contextual responses with source references
+- Conversation history and follow-up support
+- Question filtering for Strato-related queries only
 
-**Token Endpoint:**
-```
-https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token
-```
+### Business Value
 
-**Request Parameters:**
-- `grant_type`: `client_credentials`
-- `client_id`: Your Application (client) ID
-- `client_secret`: Your client secret
-- `scope`: `https://outlook.office365.com/.default`
+- **Saves Time**: No manual navigation through Zendesk documentation
+- **Improves Efficiency**: Faster understanding of product features
+- **Maintains Control**: Information-only responses, no automated actions
+- **Shared Knowledge**: Integrated with Easy Suite products for future expansion
 
-**Token Lifetime:**
-- Access tokens are typically valid for 60-90 minutes
-- The system automatically refreshes tokens as needed
+### How Users Access It
 
----
-
-## Prerequisites
-
-Before configuring Microsoft SMTP with OAuth 2.0, ensure you have the following credentials provisioned via Microsoft Azure Active Directory (Azure AD):
-
-| Configuration Key | Description | Required For |
-|------------------|-------------|--------------|
-| **Client ID** | The Application (client) ID registered in Azure AD | Client Credentials Flow |
-| **Tenant ID** | The Directory (tenant) ID for your Microsoft 365 organization | Client Credentials Flow |
-| **Client Secret** | A secret key generated from the Azure portal for app authentication | Client Credentials Flow |
-| **Hostname** | Microsoft SMTP server endpoint: `smtp.office365.com` | All |
-| **Port** | SMTP port with STARTTLS: `587` | All |
-| **Username** | Email address for SMTP authentication (e.g., `noreply@yourdomain.com`) | All |
-| **Sender Email** | Microsoft 365 mailbox address (typically same as username) | All |
+1. Enable via Upgrade Center in Strato v1
+2. Search for "Ask Strato" feature and install
+3. Chatbot appears at the bottom of the screen
 
 ---
 
-## Part 1: Azure AD & Exchange Online Setup
+## Getting Started
 
-### Step 1: Register an Application in Azure AD
+### Prerequisites
 
-1. Sign in to the [Azure Portal](https://portal.azure.com)
-2. Navigate to: **Azure Active Directory** > **App registrations** > **New registration**
-3. Configure the application:
-   - **Name:** `Strato SMTP Sender` (or your preferred name)
-   - **Supported account types:** Select "Accounts in this organizational directory only (Single tenant)"
-   - **Redirect URI:** Leave blank (not required for Client Credentials Flow)
-4. Click **Register**
-5. **Important:** Copy and securely store the **Application (client) ID** and **Directory (tenant) ID**
+- Python 3.x installed
+- AWS CLI installed
+- Access to Strato Sandbox Account
+- Homebrew (for macOS)
 
-### Step 2: Configure API Permissions
+### Initial Setup
 
-1. In your registered app, navigate to **API permissions**
-2. Click **Add a permission**
-3. Select **APIs my organization uses**
-4. Search for and select **Office 365 Exchange Online**
-5. Choose **Application permissions** (not Delegated permissions)
-6. Add the following permission:
-   - `SMTP.SendAsApp` - Allows the application to send emails as any user
-7. Click **Add permissions**
-8. **Critical:** Click **Grant admin consent for [Your Organization]** and confirm
-   - This step requires Azure AD administrator privileges
-   - Without admin consent, the system will return an Unauthorized error
+1. Clone the repository and navigate to the project directory
 
-### Step 3: Generate a Client Secret
+2. Create and activate a virtual environment:
 
-1. Navigate to **Certificates & secrets** in your app registration
-2. Click **New client secret**
-3. Provide a description (e.g., "Strato SMTP Secret")
-4. Select an expiration period (recommended: 12-24 months or custom)
-5. Click **Add**
-6. **Important:** Immediately copy the secret **Value** (not the Secret ID)
-   - This value is only shown once and cannot be retrieved later
-   - Store it securely in a password manager or secrets vault
-   - The Secret ID is not used by the code
+```bash
+# Create virtual environment
+python3 -m venv .venv
 
-### Step 4: Grant "Send As" Permission in Exchange Online
+# Activate virtual environment
+source .venv/bin/activate
 
-This step configures which mailbox the application can send emails from.
-
-#### 4.1: Get the Service Principal Object ID
-
-1. Navigate to **Azure Active Directory** > **Enterprise applications**
-2. Search for your application name (e.g., "Strato SMTP Sender")
-3. Click on the application
-4. In the **Overview** section, copy the **Object ID**
-   - **Important:** This is the Service Principal Object ID (found under Enterprise Applications)
-   - This is different from the Object ID in App registrations
-   - This is required for Exchange permissions
-
-#### 4.2: Install Exchange Online PowerShell Module
-
-Open PowerShell as Administrator and run:
-
-```powershell
-# Set execution policy to allow module installation
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-
-# Install the Exchange Online Management module
-Install-Module -Name ExchangeOnlineManagement -Force
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-#### 4.3: Connect to Exchange Online
+### AWS Configuration
 
-```powershell
-# Connect to Exchange Online (you'll be prompted to sign in)
-Connect-ExchangeOnline
+#### Install AWS CLI
 
-# Sign in with an account that has Exchange Administrator privileges
+```bash
+brew install awscli
 ```
 
-#### 4.4: Grant Send As Permission
+#### Configure AWS Credentials
 
-Run the following command, replacing the placeholders:
-
-```powershell
-Add-RecipientPermission -Identity "<mailbox@yourdomain.com>" -Trustee "<Service-Principal-Object-ID>" -AccessRights SendAs -Confirm:$false
+```bash
+aws configure
 ```
 
-**Parameters:**
-- `Identity`: The email address of the mailbox that will be used to send emails (e.g., `noreply@yourdomain.com`)
-- `Trustee`: The Service Principal Object ID from step 4.1
-- `AccessRights`: Set to `SendAs` to allow sending emails as this mailbox
+You'll be prompted for:
+- AWS Access Key ID
+- AWS Secret Access Key
+- Default region name: `us-west-2`
 
-**Example:**
-```powershell
-Add-RecipientPermission -Identity "no.reply@stratohcm.com" -Trustee "a1b2c3d4-e5f6-7890-abcd-ef1234567890" -AccessRights SendAs -Confirm:$false
-```
+#### Creating IAM User (First Time Setup)
 
-#### 4.5: Verify the Permission
-
-```powershell
-# Verify the permission was granted
-Get-RecipientPermission -Identity "<mailbox@yourdomain.com>" | Where-Object {$_.Trustee -like "*<Service-Principal-Object-ID>*"}
-```
+1. Open AWS Console → IAM → Users
+2. Click "Create User"
+3. Attach required policies (minimum):
+   - AmazonBedrockFullAccess
+   - AmazonS3ReadOnlyAccess
+   - AmazonDynamoDBFullAccess
+   - (Add others as needed by the application)
+4. Create access key for the user
+5. Save the Access Key ID and Secret Access Key
+6. Use these credentials in `aws configure`
 
 ---
 
-## Part 2: Strato System Integration
+## Environment Variables
 
-### Backend Implementation (STOP-2672)
+Environment variables are stored in `.env` files within each lambda function's local directory.
 
-The following components have been updated to support OAuth 2.0:
+### 1. `local/chat/.env` - Main Chat Function
 
-- **Utility Class:** `MicrosoftOAuthProvider.java` - Uses MSAL (Microsoft Authentication Library) to fetch tokens
-- **Mail Logic:** `MailBuilderBean.java` - Updated to handle `sendNonSecure` and `sendSecure` methods with dynamic OAuth token injection
-- **Data Model:** `EmailConfig` entity updated with `clientID`, `clientSecret`, `isOauth`, and `tenantId` fields
-- **Database Migration:** `prov_email_config` migration script adds OAuth columns
+```bash
+# AWS Parameter Store values
+AICORE_KB_ID="/ore-cor-spn-dev/ai-ask-me/input/aiCoreKbId"
 
-### Step 1: Enable OAuth for SMTP Services
-
-1. Navigate to **Strato** > **User Settings** > **Upgrade Center**
-2. Locate and install: **Security Enhancement - OAuth enablement for SMTP services**
-3. Wait for the installation to complete
-4. Ensure the `prov_email_config` migration script is run across all environments to reflect the new OAuth columns
-
-### Step 2: Configure SMTP Settings in Strato Admin Tool
-
-1. Open the **Strato Admin Tool**
-2. Navigate to **SMTP Server Settings**
-3. Enable SMTP configuration
-4. Fill in the following details:
-
-| Field | Value |
-|-------|-------|
-| **Authentication Type** | Bearer (OAuth 2.0) |
-| **Email Provider** | Microsoft |
-| **Hostname** | `smtp.office365.com` |
-| **Port** | `587` |
-| **Username** | Your Microsoft 365 mailbox address (e.g., `noreply@yourdomain.com`) |
-| **Sender Email** | Same as username |
-| **Client ID** | Application (client) ID from Azure AD |
-| **Tenant ID** | Directory (tenant) ID from Azure AD |
-| **Client Secret** | The secret value generated in Azure AD |
-
-5. Click **Test Connection** to verify the configuration
-   - This triggers the XOAUTH2 handshake
-6. If successful, click **Save**
-
-**Code Reference:** `system.view.js` (line 2105 in `strato-administration`) - UI configuration for SMTP settings
-
-### Step 3: Verify Email Functionality
-
-Test the configuration using one of the following methods:
-
-#### Option 1: Email Template Test
-1. Navigate to **Email Templates**
-2. Select or create a test template
-3. Click **Send Test Email**
-4. Verify the email is received
-
-#### Option 2: Workflow Test
-1. Create or open a workflow with a **Send Email** step
-2. Execute the workflow
-3. Verify the email is received in the recipient's inbox
-
----
-
-## Troubleshooting & Verification
-
-### Token Verification
-
-You can inspect the generated token by logging it (in a dev environment) and pasting it into [jwt.ms](https://jwt.ms):
-
-- **aud (Audience):** Must be `https://outlook.office365.com`
-- **roles:** Must include `SMTP.SendAsApp`
-
-### Common Issues and Solutions
-
-| Error | Likely Cause | Solution |
-|-------|--------------|----------|
-| **535 5.7.3 Authentication unsuccessful** | Incorrect Secret or Tenant ID | Re-generate secret and verify Tenant ID matches the app registration |
-| **554 5.2.252 SendAsDenied** | PowerShell step missed | Ensure the `Add-RecipientPermission` command was executed for the specific sender address |
-| **Token Acquisition Failure** | Azure Regional Issues | Note: +63 (Philippines) country codes sometimes face SMS verification lag in Azure; use an Authenticator app instead |
-| **Access Denied** | Wrong Service Principal Object ID used | Verify you used the Service Principal Object ID (from Enterprise applications), not the App registration Object ID |
-| **Emails Not Sending** | Port 587 blocked by firewall | Verify network connectivity to `smtp.office365.com:587` |
-| **Authentication Failed** | Admin consent not granted | Re-grant admin consent in Azure AD for API permissions |
-
----
-
-## Security Best Practices
-
-1. **Secret Management:**
-   - Store client secrets in a secure secrets management system
-   - Never commit secrets to source control
-   - Set calendar reminders before secret expiration
-
-2. **Secret Rotation:**
-   - Schedule rotation every 12-24 months
-   - Have a documented process for updating secrets in production
-
-3. **Least Privilege:**
-   - Do not grant `Mail.Send` (Graph API) if you only need SMTP
-   - Use `SMTP.SendAsApp` permission only
-   - Only grant SendAs permission to specific mailboxes that need it
-   - Use dedicated service accounts for automated emails
-
-4. **Monitoring:**
-   - Monitor token acquisition failures
-   - Set up alerts for authentication errors
-   - Regularly audit Exchange Online permissions
-
-5. **Environment Sync:**
-   - Ensure the `prov_email_config` migration script is run across all environments to reflect the new OAuth columns
-
----
-
-## Client Credentials Flow Diagram
-
+# Local values
+AICORE_CHAT_HISTORY_TABLE=<DynamoDB table name for chat history>
+AICORE_S3_BUCKET=<S3 bucket for Zendesk articles>
 ```
-┌─────────────┐                                  ┌──────────────────┐
-│   Strato    │                                  │   Azure AD       │
-│   System    │                                  │   (Microsoft)    │
-└──────┬──────┘                                  └────────┬─────────┘
-       │                                                  │
-       │  1. Request Access Token                        │
-       │  POST /oauth2/v2.0/token                        │
-       │  - client_id                                    │
-       │  - client_secret                                │
-       │  - grant_type: client_credentials               │
-       │  - scope: https://outlook.office365.com/.default│
-       ├────────────────────────────────────────────────>│
-       │                                                  │
-       │  2. Return Access Token                         │
-       │  { access_token, expires_in, ... }              │
-       │<────────────────────────────────────────────────┤
-       │                                                  │
-       │                                                  │
-┌──────▼──────┐                                  ┌────────▼─────────┐
-│   Strato    │                                  │   Microsoft      │
-│   System    │                                  │   SMTP Server    │
-└──────┬──────┘                                  └────────┬─────────┘
-       │                                                  │
-       │  3. Connect to SMTP (STARTTLS)                  │
-       ├────────────────────────────────────────────────>│
-       │                                                  │
-       │  4. AUTH XOAUTH2 <base64(access_token)>         │
-       ├────────────────────────────────────────────────>│
-       │                                                  │
-       │  5. Authentication Success                      │
-       │<────────────────────────────────────────────────┤
-       │                                                  │
-       │  6. Send Email                                  │
-       ├────────────────────────────────────────────────>│
-       │                                                  │
-       │  7. Email Sent Confirmation                     │
-       │<────────────────────────────────────────────────┤
-       │                                                  │
+
+### 2. `local/get_products/.env` - Product Listing
+
+```bash
+AICORE_S3_BUCKET=<S3 bucket for Zendesk articles>
+```
+
+### 3. `local/receive/.env` - Webhook Receiver
+
+```bash
+WEBHOOK_SECRET=<Zendesk webhook secret>
+EVENT_BUS_ARN=<EventBridge ARN>
+```
+
+### 4. `local/reporter/.env` - Chat Reporter (POC)
+
+```bash
+AICORE_CHAT_HISTORY_TABLE=<DynamoDB table for chat history>
+```
+
+### 5. `local/retrieve/.env` - Knowledge Base Retrieval
+
+```bash
+# AWS Parameter Store
+AICORE_KB_ID=<Knowledge Base ID>
+
+# Local values
+AICORE_CHAT_HISTORY_TABLE=<DynamoDB table name>
+AICORE_S3_BUCKET=<S3 bucket for articles>
+```
+
+### 6. `local/sync/.env` - Article Sync
+
+```bash
+# AWS Parameter Store
+ZENDESK_BEARER_TOKEN=<Zendesk API token>
+AICORE_KB_ID=<Knowledge Base ID>
+AICORE_KB_DATA_SOURCE_ID=<Data Source ID>
+
+# Local values
+AICORE_S3_BUCKET=<S3 bucket for articles>
 ```
 
 ---
 
-## References
+## Project Structure
 
-- [Azure Portal](https://portal.azure.com)
-- [Microsoft Learn: Authenticate an IMAP, POP or SMTP connection using OAuth](https://learn.microsoft.com/en-us/exchange/client-developer/legacy-protocols/how-to-authenticate-an-imap-pop-smtp-application-by-using-oauth)
-- [Microsoft Identity Platform: Client Credentials Flow](https://learn.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-client-creds-grant-flow)
-- [MSAL for Java Overview](https://learn.microsoft.com/en-us/azure/active-directory/develop/msal-overview)
-- [Exchange Online PowerShell Documentation](https://learn.microsoft.com/en-us/powershell/exchange/exchange-online-powershell)
-- [SpinifexIT Help Center - Security Enhancement](https://help.spinifexgroup.com)
-- [SpinifexIT JIRA STOP-2672](https://spinifexgroup.atlassian.net/browse/STOP-2672)
-- [SpinifexIT JIRA STOP-2726](https://spinifexgroup.atlassian.net/browse/STOP-2726)
+```
+.
+├── cdk/                    # Infrastructure as Code (CDK scripts)
+├── lambdas/               # Lambda function source code
+│   ├── chat/             # Main chatbot logic
+│   ├── get_products/     # Product listing endpoint
+│   ├── receive/          # Zendesk webhook receiver
+│   ├── reporter/         # Chat analytics (POC)
+│   ├── retrieve/         # Knowledge base retrieval
+│   └── sync/             # Article synchronization
+├── layers/               # Lambda layers (Python packages)
+│   ├── python_markdown_layer/
+│   └── sto-sync-zendesk-articles-layer/
+├── local/                # Local development versions
+│   ├── chat/
+│   ├── frontend/         # Test UI
+│   ├── get_products/
+│   ├── receive/
+│   ├── reporter/
+│   ├── retrieve/
+│   └── sync/
+├── tests/                # Unit tests (pytest)
+├── requirements.txt      # Python dependencies
+└── README.md            # This file
+```
 
 ---
 
-**Review Date:** January 28, 2026
+## Development Guide
+
+### Running Locally
+
+#### Lambda Functions with Flask
+
+For functions with `app.py`:
+
+```bash
+cd local/<function-name>
+flask run --reload
+```
+
+The `--reload` flag enables auto-reload on file changes.
+
+#### Lambda Functions without Flask
+
+```bash
+cd local/<function-name>
+python <filename>.py
+```
+
+#### Testing the Chatbot Locally
+
+1. **Start Backend**:
+   ```bash
+   cd local/chat
+   flask run --reload
+   ```
+
+2. **Open Frontend**:
+   - Navigate to `local/frontend/`
+   - Open `local-index.html` in your browser
+
+### Testing
+
+Run unit tests from the project root:
+
+```bash
+cd tests
+pytest -vv
+```
+
+Options:
+- `pytest` - Run all tests
+- `-v` - Verbose output
+- `-vv` - Very verbose output
+
+### Python Dependencies
+
+| Library | Purpose |
+|---------|---------|
+| `boto3` | AWS SDK for Python (Bedrock, S3, DynamoDB) |
+| `python-dotenv` | Load environment variables from `.env` files |
+| `Flask` | Local development server |
+| `Flask-Cors` | Enable CORS for local testing |
+| `html2text` | Convert HTML to plain text |
+| `requests` | HTTP client for API calls |
+| `pytest` | Testing framework |
+| `Markdown` | Convert Markdown to HTML |
+| `watchdog` | File system monitoring for Flask reload |
+
+#### Important Notes
+
+- Only add libraries to Lambda Layers if they're used in production
+- Don't add `boto3` to Lambda Layers (AWS Lambda includes it by default)
+- Development-only libraries should stay in `requirements.txt`
+
+---
+
+## Architecture
+
+### System Flow
+
+```
+User Question → Lambda (Chat) → Bedrock AI → Knowledge Base → Response
+                    ↓
+              DynamoDB (Session History)
+```
+
+### Lambda Functions
+
+| Function | Purpose | Trigger |
+|----------|---------|---------|
+| `chat` | Main chatbot logic | API Gateway |
+| `get_products` | List available products | API Gateway |
+| `receive` | Receive Zendesk webhooks | API Gateway |
+| `retrieve` | Fetch KB chunks (Easy Suite) | API Gateway |
+| `reporter` | Analytics on chat history | API Gateway |
+| `sync` | Sync Zendesk articles to KB | EventBridge |
+
+### Knowledge Base
+
+The Knowledge Base is an OpenSearch Vector Database that:
+
+- Stores Zendesk articles as vector embeddings
+- Groups semantically similar content
+- Enables fast semantic search for relevant articles
+
+#### Metadata Schema
+
+| Field | Description | Embedded | Filterable |
+|-------|-------------|----------|------------|
+| `category_id` | Zendesk category ID | ❌ | ✅ |
+| `category_name` | Product name | ✅ | ✅ |
+| `section_id` | Parent article ID | ❌ | ✅ |
+| `section_name` | Parent article name | ✅ | ✅ |
+| `article_id` | Current article ID | ❌ | ✅ |
+| `article_name` | Current article name | ✅ | ✅ |
+| `url` | Zendesk URL | ✅ | ✅ |
+| `created_date` | First published date | ✅ | ❌ |
+| `updated_date` | Last updated date | ✅ | ❌ |
+
+### Article Syncing Process
+
+1. **Zendesk Webhook** triggers on article publish/unpublish
+2. **Receive Lambda** validates and forwards event
+3. **Sync Lambda** processes the event:
+   - **Published**: Downloads article → Converts to text → Uploads to S3 → Syncs to KB
+   - **Unpublished**: Removes from S3 → Syncs KB (removes entry)
+
+### Conversation Context
+
+When a user asks a question, the system includes:
+
+1. **User Input**: The actual question
+2. **Tool Context**: Current location in Strato (e.g., "Document Template Editor")
+3. **Session History**: Previous questions and answers from the same session
+4. **Product Context**: Which product the user is working with
+
+---
+
+## Feature Details
+
+### Conversation History
+
+- Stored in DynamoDB with session IDs
+- Maintains context across multiple questions
+- Enables follow-up questions without repeating context
+
+### Question Filtering
+
+- Blocks non-Strato-related questions
+- Ensures responses stay within product scope
+- Improves response accuracy
+
+### Context Awareness
+
+- Detects user's current tool/location in Strato
+- Provides more relevant answers based on context
+- Reduces ambiguity in responses
+
+---
+
+## Lambda Handler Pattern
+
+All Lambda functions follow this pattern:
+
+```python
+def lambda_handler(event, context):
+    try:
+        # Parse request body and headers
+        body = event['body'] if isinstance(event.get('body'), dict) else json.loads(event['body'])
+        headers = event['headers'] if isinstance(event['headers'], dict) else json.loads(event['headers'])
+        
+        # Business logic here
+        # ...
+        
+        return {
+            "statusCode": 200,
+            "body": json.dumps(response_data),
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        }
+    except Exception as e:
+        LOGGER.exception(f"Error: {e}")
+        return {
+            "statusCode": 500,
+            "body": json.dumps(f"Error: {str(e)}"),
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*"
+            }
+        }
+```
+
+### Request/Response Structure
+
+- **Payload**: Contained in `event['body']`
+- **Headers**: Contained in `event['headers']`
+- **Response**: Dictionary with `statusCode`, `body`, and `headers`
+
+---
+
+## Deployment
+
+Deployment is managed through AWS CDK scripts in the `cdk/` directory.
+
+```bash
+cd cdk
+npm install
+cdk deploy
+```
+
+---
+
+## Additional Resources
+
+- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
+- [Internal AWS Setup Guide](https://stratohcm.odoo.com/odoo/knowledge/749)
+- [Ask Strato AI Chatbot - Internal Documentation](https://stratohcm.odoo.com/odoo/knowledge/305)
+- Zendesk API Documentation (contact IT for access)
+
+---
+
