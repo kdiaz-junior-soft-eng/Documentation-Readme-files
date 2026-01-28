@@ -29,7 +29,7 @@ An AI-powered chatbot that helps users find answers to product feature questions
 ### What It Does
 
 Ask Strato is an AI chatbot that provides:
-
+![alt text](image.png)
 - Product feature-related question answering
 - Real-time syncing with Zendesk articles
 - Contextual responses with source references
@@ -47,7 +47,9 @@ Ask Strato is an AI chatbot that provides:
 
 1. Enable via Upgrade Center in Strato v1
 2. Search for "Ask Strato" feature and install
+![alt text](images/image-10.png)
 3. Chatbot appears at the bottom of the screen
+![alt text](images/image-11.png)
 
 ---
 
@@ -97,15 +99,17 @@ You'll be prompted for:
 - Default region name: `us-west-2`
 
 #### Creating IAM User (First Time Setup)
-
+   ![alt text](images/image-7.png)
 1. Open AWS Console → IAM → Users
 2. Click "Create User"
 3. Attach required policies (minimum):
+   ![alt text](images/image-8.png)
    - AmazonBedrockFullAccess
    - AmazonS3ReadOnlyAccess
    - AmazonDynamoDBFullAccess
    - (Add others as needed by the application)
 4. Create access key for the user
+![alt text](images/image-9.png)
 5. Save the Access Key ID and Secret Access Key
 6. Use these credentials in `aws configure`
 
@@ -271,6 +275,8 @@ Options:
 ---
 
 ## Architecture
+
+![alt text](images/image-12.png)
 
 ### System Flow
 
