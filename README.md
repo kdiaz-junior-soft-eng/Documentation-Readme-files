@@ -2,7 +2,6 @@
 
 **Document Version:** 2.0
 **JIRA Reference:** [STOP-2672](https://spinifexit.atlassian.net/browse/STOP-2672) and [STOP-2726](https://spinifexit.atlassian.net/browse/STOP-2726)
-**Status:** Final Specification
 
 ---
 
@@ -311,7 +310,8 @@ You can inspect the generated token by logging it (in a dev environment) and pas
 - [Exchange Online PowerShell Documentation](https://learn.microsoft.com/en-us/powershell/exchange/exchange-online-powershell)
 - [SpinifexIT Help Center - Security Enhancement](https://help.spinifexgroup.com)
 - [SpinifexIT JIRA STOP-2672](https://spinifexgroup.atlassian.net/browse/STOP-2672)
+- [SpinifexIT JIRA STOP-2726](https://spinifexgroup.atlassian.net/browse/STOP-2726)
 
 ---
 
-**Next Review Date:** July 28, 2026
+**Review Date:** January 28, 2026
