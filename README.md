@@ -1,7 +1,7 @@
 # Microsoft SMTP OAuth Configuration Guide
 
 **Document Version:** 2.0
-**JIRA Reference:** STOP-2672
+**JIRA Reference:** STOP-2672(https://spinifexit.atlassian.net/browse/STOP-2672) and STOP-2726(https://spinifexit.atlassian.net/browse/STOP-2726)
 **Status:** Final Specification
 
 ---
