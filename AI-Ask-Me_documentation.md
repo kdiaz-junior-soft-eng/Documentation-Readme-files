@@ -47,9 +47,9 @@ Ask Strato is an AI chatbot that provides:
 
 1. Enable via Upgrade Center in Strato v1
 2. Search for "Ask Strato" feature and install
-![alt text](images/image-10.png)
+![alt text](ai-ask-me-images/image-10.png)
 3. Chatbot appears at the bottom of the screen
-![alt text](images/image-11.png)
+![alt text](ai-ask-me-images/image-11.png)
 
 ---
 
@@ -99,17 +99,17 @@ You'll be prompted for:
 - Default region name: `us-west-2`
 
 #### Creating IAM User (First Time Setup)
-   ![alt text](images/image-7.png)
+   ![alt text](ai-ask-me-images/image-7.png)
 1. Open AWS Console → IAM → Users
 2. Click "Create User"
 3. Attach required policies (minimum):
-   ![alt text](images/image-8.png)
+   ![alt text](ai-ask-me-images/image-8.png)
    - AmazonBedrockFullAccess
    - AmazonS3ReadOnlyAccess
    - AmazonDynamoDBFullAccess
    - (Add others as needed by the application)
 4. Create access key for the user
-![alt text](images/image-9.png)
+![alt text](ai-ask-me-images/image-9.png)
 5. Save the Access Key ID and Secret Access Key
 6. Use these credentials in `aws configure`
 
@@ -276,7 +276,7 @@ Options:
 
 ## Architecture
 
-![alt text](images/image-12.png)
+![alt text](ai-ask-me-images/image-12.png)
 
 ### System Flow
 
